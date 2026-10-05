@@ -1,14 +1,19 @@
 """Talks to DaVinci Resolve.
 
-Two layers:
-  1. Process detection via psutil (always works, also with Resolve Free).
-  2. The official Resolve scripting API (DaVinciResolveScript) for project,
-     timeline, page and render state. If it is unavailable we fall back to 1.
+Three sources, from least to most detailed:
+  1. Process detection via psutil (always works).
+  2. Window titles (Windows only, works with Resolve Free): the main window is
+     called "DaVinci Resolve - <project>" and the start screen opens an extra
+     "Project Manager" window.
+  3. The official scripting API (DaVinciResolveScript) for page, timeline and
+     render state. External scripting is a Resolve Studio feature, so on the
+     free version we stay with 1 and 2.
 """
 
 import importlib
 import logging
 import os
+import re
 import sys
 from dataclasses import dataclass
 
@@ -18,11 +23,22 @@ log = logging.getLogger(__name__)
 
 PROCESS_NAMES = {"resolve.exe", "resolve"}
 
+# "DaVinci Resolve Studio - MyProject" -> product, project
+TITLE_RE = re.compile(r"^(DaVinci Resolve(?: Studio)?) - (.+)$")
+# Window shown while the start screen / project manager is open.
+MENU_TITLES = {"project manager", "projektmanager", "projektverwaltung"}
+# Names Resolve uses for the unsaved placeholder project.
+PLACEHOLDER_PROJECTS = {"new project", "untitled project", "neues projekt",
+                        "unbenanntes projekt"}
+
 
 @dataclass
 class ResolveState:
     running: bool = False
     api_available: bool = False
+    # False when we only know that the process runs (no API, no window info).
+    has_info: bool = False
+    in_main_menu: bool = False
     product: str = "DaVinci Resolve"
     version: str = ""
     page: str | None = None
@@ -72,12 +88,58 @@ def _load_script_module():
         return None
 
 
-def is_resolve_running() -> bool:
+def find_resolve_pids() -> set[int]:
+    pids = set()
     for proc in psutil.process_iter(["name"]):
         name = (proc.info.get("name") or "").lower()
         if name in PROCESS_NAMES:
-            return True
-    return False
+            pids.add(proc.pid)
+    return pids
+
+
+def _visible_window_titles(pids: set[int]) -> list[str]:
+    """Titles of the visible top-level windows of the given processes (Windows only)."""
+    if not sys.platform.startswith("win"):
+        return []
+    import ctypes
+    from ctypes import wintypes
+
+    user32 = ctypes.windll.user32
+    titles = []
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def callback(hwnd, _):
+        if user32.IsWindowVisible(hwnd):
+            pid = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
+            if pid.value in pids:
+                length = user32.GetWindowTextLengthW(hwnd)
+                buf = ctypes.create_unicode_buffer(length + 1)
+                user32.GetWindowTextW(hwnd, buf, length + 1)
+                if buf.value:
+                    titles.append(buf.value.strip())
+        return True
+
+    try:
+        user32.EnumWindows(callback, 0)
+    except OSError as e:
+        log.debug("Fenstertitel konnten nicht gelesen werden: %s", e)
+    return titles
+
+
+def _apply_window_titles(state: "ResolveState", titles: list[str], use_project: bool):
+    menu_open = any(t.lower() in MENU_TITLES for t in titles)
+    main_title = next((m for m in map(TITLE_RE.match, titles) if m), None)
+    if not menu_open and main_title is None:
+        return
+
+    state.has_info = True
+    state.in_main_menu = menu_open
+    if main_title is not None:
+        state.product = main_title.group(1)
+        project = main_title.group(2).strip()
+        if use_project and project.lower() not in PLACEHOLDER_PROJECTS:
+            state.project = project
 
 
 class ResolveClient:
@@ -96,21 +158,29 @@ class ResolveClient:
                 log.debug("scriptapp fehlgeschlagen: %s", e)
                 self._resolve = None
             if self._resolve is None and not self._warned_no_api:
-                log.warning("Keine Verbindung zur Resolve-API. Ist in Resolve unter "
-                            "Einstellungen > System > Allgemein > 'Externes Scripting' "
-                            "auf 'Lokal' gestellt? Laufe im Basis-Modus weiter.")
+                log.info("Keine Verbindung zur Resolve-API (nur mit DaVinci Resolve "
+                         "Studio und 'Externes Scripting: Lokal' verfügbar). "
+                         "Nutze die Fenstertitel-Erkennung.")
                 self._warned_no_api = True
         return self._resolve
 
     def get_state(self) -> ResolveState:
-        if not is_resolve_running():
+        pids = find_resolve_pids()
+        if not pids:
             self._resolve = None
             return ResolveState(running=False)
 
         state = ResolveState(running=True)
+        titles = _visible_window_titles(pids)
         resolve = self._connect()
-        if resolve is None:
-            return state
+        if resolve is None or not self._read_api(resolve, state):
+            _apply_window_titles(state, titles, use_project=True)
+        else:
+            # The API has no notion of the start screen, the window does.
+            _apply_window_titles(state, titles, use_project=False)
+        return state
+
+    def _read_api(self, resolve, state: ResolveState) -> bool:
 
         try:
             state.product = resolve.GetProductName() or state.product
@@ -127,11 +197,13 @@ class ResolveClient:
                 if state.rendering:
                     state.render_progress = self._render_progress(project)
             state.api_available = True
+            state.has_info = True
+            return True
         except Exception as e:
             # Resolve was closed or the connection died; reconnect next time.
             log.debug("Resolve-API-Abfrage fehlgeschlagen: %s", e)
             self._resolve = None
-        return state
+            return False
 
     @staticmethod
     def _render_progress(project) -> int | None:

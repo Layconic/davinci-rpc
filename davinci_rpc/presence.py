@@ -68,7 +68,7 @@ class PresenceBuilder:
         if state_text:
             activity["state"] = _limit(state_text)
 
-        if (state.page and state.project
+        if (state.page and not state.in_main_menu
                 and cfg["show_page"] and cfg["use_page_icons"]):
             activity["small_image"] = f"page_{state.page}"
             activity["small_text"] = f"{PAGE_LABELS.get(state.page, state.page)} Page"
@@ -85,12 +85,11 @@ class PresenceBuilder:
         """Returns (details, state) - the two text lines shown in Discord."""
         cfg = self.config
 
-        # Without the scripting API we know nothing beyond "Resolve is open",
-        # so only the app name and elapsed time are shown.
-        if not state.api_available:
+        # Nothing known beyond "Resolve is open": only app name and elapsed time.
+        if not state.has_info:
             return None, None
 
-        if not state.project:
+        if state.in_main_menu:
             return "Im Hauptmenü", "Wählt ein Projekt aus"
 
         if state.rendering and cfg["show_render_progress"]:
@@ -103,7 +102,7 @@ class PresenceBuilder:
             details = "Arbeitet an einem Projekt"
 
         parts = []
-        if cfg["show_project"]:
+        if cfg["show_project"] and state.project:
             parts.append(f"📁 {state.project}")
         if cfg["show_timeline"] and state.timeline:
             parts.append(f"🎬 {state.timeline}")

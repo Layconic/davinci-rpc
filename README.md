@@ -13,12 +13,25 @@ Macht Color Grading
 ## Funktionen
 
 - Erkennt automatisch, wenn DaVinci Resolve gestartet/beendet wird
-- Zeigt Projekt- und Timelinenamen (abschaltbar, z. B. für Kundenprojekte)
-- Zeigt die aktive Page mit eigenem Icon
-- Zeigt den Render-Fortschritt auf der Deliver-Page
+- Zeigt „Im Hauptmenü“ oder den Namen des geöffneten Projekts (abschaltbar, z. B. für Kundenprojekte)
+- Mit DaVinci Resolve Studio zusätzlich: Timeline, aktive Page mit Icon und Render-Fortschritt
 - Verbindet sich automatisch neu, wenn Discord neu gestartet wird
-- Basis-Modus ohne Scripting-API (nur „Spielt DaVinci Resolve“ + Zeit, ohne Text)
 - Windows, macOS und Linux
+
+### Was wird angezeigt?
+
+| | Resolve (kostenlos) | Resolve Studio |
+|---|---|---|
+| Hauptmenü / Projektname | ✅ (nur Windows) | ✅ |
+| Verstrichene Zeit | ✅ | ✅ |
+| Aktive Page (Edit, Color, …) | ❌ | ✅ |
+| Timeline | ❌ | ✅ |
+| Render-Fortschritt | ❌ | ✅ |
+
+Die kostenlose Version erlaubt keinen Zugriff von außen auf die Scripting-API.
+Deshalb liest das Tool dort den Fenstertitel von Resolve aus
+(„DaVinci Resolve - Projektname“). Unter macOS und Linux erscheint mit der
+kostenlosen Version nur „Spielt DaVinci Resolve“ mit der Zeit.
 
 ## Voraussetzungen
 
@@ -73,15 +86,14 @@ Macht Color Grading
 | `use_page_icons` | `true` | Kleines Page-Icon anzeigen |
 | `buttons` | `[]` | Bis zu 2 Buttons: `[{"label": "Mein YouTube", "url": "https://..."}]` |
 
-### 3. Resolve-Scripting aktivieren
+### 3. Nur für DaVinci Resolve Studio: Scripting aktivieren
 
-Für Projekt, Timeline und Page braucht das Tool die Resolve-Scripting-API:
+Für Page, Timeline und Render-Fortschritt braucht das Tool die Scripting-API:
 
 **DaVinci Resolve → Einstellungen → System → Allgemein → Externes Scripting verwenden: `Lokal`**
 
-Ist die API nicht erreichbar (z. B. weil externes Scripting in deiner Resolve-Version
-nicht verfügbar ist), läuft das Tool im Basis-Modus weiter: Discord zeigt dann nur
-„Spielt DaVinci Resolve“ mit der verstrichenen Zeit, ohne weiteren Text.
+In der kostenlosen Version gibt es diese Einstellung nicht. Hier ist nichts zu tun,
+das Tool nutzt automatisch die Fenstertitel-Erkennung.
 
 > Hinweis: Die `fusionscript`-Bibliothek von Resolve unterstützt nicht jede
 > Python-Version. Wenn die API nicht lädt, mit einer älteren Python-Version
