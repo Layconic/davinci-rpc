@@ -21,13 +21,13 @@ PAGE_LABELS = {
 }
 
 PAGE_VERBS = {
-    "media": "Organisiert Medien",
-    "cut": "Schneidet",
-    "edit": "Schneidet",
-    "fusion": "Erstellt Effekte",
-    "color": "Color Grading",
-    "fairlight": "Bearbeitet Audio",
-    "deliver": "Exportiert",
+    "media": "Sichtet Medien",
+    "cut": "Schneidet ein Video",
+    "edit": "Schneidet ein Video",
+    "fusion": "Baut Effekte in Fusion",
+    "color": "Macht Color Grading",
+    "fairlight": "Mischt den Ton",
+    "deliver": "Bereitet den Export vor",
 }
 
 
@@ -62,27 +62,14 @@ class PresenceBuilder:
         large_text = f"{state.product} {state.version}".strip()
         activity = {"large_image": cfg["large_image"], "large_text": _limit(large_text)}
 
-        if state.rendering and cfg["show_render_progress"]:
-            details = "Rendert"
-            if state.render_progress is not None:
-                details += f" ({state.render_progress}%)"
-        elif state.page and cfg["show_page"]:
-            details = PAGE_VERBS.get(state.page, "Bearbeitet")
-        else:
-            details = "Bearbeitet ein Projekt" if state.project else "Im Projektmanager"
-        if not state.api_available:
-            details = "DaVinci Resolve geöffnet"
-        activity["details"] = _limit(details)
+        details, state_text = self._texts(state)
+        if details:
+            activity["details"] = _limit(details)
+        if state_text:
+            activity["state"] = _limit(state_text)
 
-        parts = []
-        if cfg["show_project"] and state.project:
-            parts.append(state.project)
-        if cfg["show_timeline"] and state.timeline:
-            parts.append(state.timeline)
-        if parts:
-            activity["state"] = _limit(" · ".join(parts))
-
-        if state.page and cfg["show_page"] and cfg["use_page_icons"]:
+        if (state.page and state.project
+                and cfg["show_page"] and cfg["use_page_icons"]):
             activity["small_image"] = f"page_{state.page}"
             activity["small_text"] = f"{PAGE_LABELS.get(state.page, state.page)} Page"
 
@@ -93,6 +80,36 @@ class PresenceBuilder:
         if buttons:
             activity["buttons"] = buttons
         return activity
+
+    def _texts(self, state: ResolveState) -> tuple[str | None, str | None]:
+        """Returns (details, state) - the two text lines shown in Discord."""
+        cfg = self.config
+
+        # Without the scripting API we know nothing beyond "Resolve is open",
+        # so only the app name and elapsed time are shown.
+        if not state.api_available:
+            return None, None
+
+        if not state.project:
+            return "Im Hauptmenü", "Wählt ein Projekt aus"
+
+        if state.rendering and cfg["show_render_progress"]:
+            details = "Rendert gerade"
+            if state.render_progress is not None:
+                details += f" · {state.render_progress} %"
+        elif state.page and cfg["show_page"]:
+            details = PAGE_VERBS.get(state.page, "Arbeitet an einem Projekt")
+        else:
+            details = "Arbeitet an einem Projekt"
+
+        parts = []
+        if cfg["show_project"]:
+            parts.append(f"📁 {state.project}")
+        if cfg["show_timeline"] and state.timeline:
+            parts.append(f"🎬 {state.timeline}")
+        if not parts:
+            return details, None
+        return details, "  ".join(parts)
 
 
 class DiscordPresence:

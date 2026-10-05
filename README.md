@@ -5,8 +5,8 @@ aktueller Page (Edit, Color, Fusion, …), Render-Fortschritt und Bearbeitungsze
 
 ```
 Spielt DaVinci Resolve
-Color Grading
-Mein Kurzfilm · Timeline 1
+Macht Color Grading
+📁 Mein Kurzfilm  🎬 Timeline 1
 ⏱ 01:23:45 vergangen
 ```
 
@@ -17,7 +17,7 @@ Mein Kurzfilm · Timeline 1
 - Zeigt die aktive Page mit eigenem Icon
 - Zeigt den Render-Fortschritt auf der Deliver-Page
 - Verbindet sich automatisch neu, wenn Discord neu gestartet wird
-- Basis-Modus ohne Scripting-API („DaVinci Resolve geöffnet“ + Zeit)
+- Basis-Modus ohne Scripting-API (nur „Spielt DaVinci Resolve“ + Zeit, ohne Text)
 - Windows, macOS und Linux
 
 ## Voraussetzungen
@@ -80,7 +80,8 @@ Für Projekt, Timeline und Page braucht das Tool die Resolve-Scripting-API:
 **DaVinci Resolve → Einstellungen → System → Allgemein → Externes Scripting verwenden: `Lokal`**
 
 Ist die API nicht erreichbar (z. B. weil externes Scripting in deiner Resolve-Version
-nicht verfügbar ist), läuft das Tool im Basis-Modus weiter.
+nicht verfügbar ist), läuft das Tool im Basis-Modus weiter: Discord zeigt dann nur
+„Spielt DaVinci Resolve“ mit der verstrichenen Zeit, ohne weiteren Text.
 
 > Hinweis: Die `fusionscript`-Bibliothek von Resolve unterstützt nicht jede
 > Python-Version. Wenn die API nicht lädt, mit einer älteren Python-Version
