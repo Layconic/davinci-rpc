@@ -1,0 +1,13 @@
+{
+  "client_id": "DEINE_DISCORD_APPLICATION_ID",
+  "update_interval": 15,
+  "show_project": true,
+  "show_timeline": true,
+  "show_page": true,
+  "show_elapsed_time": true,
+  "reset_timer_on_project_change": false,
+  "show_render_progress": true,
+  "large_image": "davinci",
+  "use_page_icons": true,
+  "buttons": []
+}
